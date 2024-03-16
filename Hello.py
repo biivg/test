@@ -1,51 +1,44 @@
-# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+import yfinance          as yf
+import ta                as ta
+import matplotlib.pyplot as plt
+import streamlit         as st
 
-import streamlit as st
-from streamlit.logger import get_logger
+df      = yf.download("BTC-USD", start = "2023-01-01")
+close   = df['Close']
 
-LOGGER = get_logger(__name__)
+len     = st.number_input('rsi len:', min_value = 1, value = 15)  
+len_ema = st.number_input('ema len:', min_value = 1, value = 31)  
 
+# Calculate RSI
+rsi = ta.momentum.RSIIndicator(close, len).rsi()
 
-def run():
-    st.set_page_config(
-        page_title="Hello",
-        page_icon="👋",
-    )
+# Calculate EMA of RSI
+ema = ta.trend.EMAIndicator(rsi, len_ema).ema_indicator()
 
-    st.write("# Welcome to Streamlit! 👋")
+# Conditions for long and short
+L = ema > 50
+S = ema < 50
 
-    st.sidebar.success("Select a demo above.")
+# Plotting
+fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(14, 10), sharex=True)
 
-    st.markdown(
-        """
-        Streamlit is an open-source app framework built specifically for
-        Machine Learning and Data Science projects.
-        **👈 Select a demo from the sidebar** to see some examples
-        of what Streamlit can do!
-        ### Want to learn more?
-        - Check out [streamlit.io](https://streamlit.io)
-        - Jump into our [documentation](https://docs.streamlit.io)
-        - Ask a question in our [community
-          forums](https://discuss.streamlit.io)
-        ### See more complex demos
-        - Use a neural net to [analyze the Udacity Self-driving Car Image
-          Dataset](https://github.com/streamlit/demo-self-driving)
-        - Explore a [New York City rideshare dataset](https://github.com/streamlit/demo-uber-nyc-pickups)
-    """
-    )
+# Plotting the closing price of BTC-USD
+axes[0].plot(df.index, close, label='BTC-USD Close Price', color = 'black')
+axes[0].set_yscale('log')  # Set the y-axis to a logarithmic scale
+axes[0].set_title('BTC-USD Close Price and RSI EMA Indicator')
+axes[0].legend()
 
+# Highlighting the areas where conditions are met
+axes[0].fill_between(df.index, close, where = L, color='green', alpha=0.3)
+axes[0].fill_between(df.index, close, where = S, color='red', alpha=0.3)
 
-if __name__ == "__main__":
-    run()
+# Plotting RSI and its EMA on the second subplot
+axes[1].plot(df.index, rsi, label='RSI', color='#490082')
+axes[1].plot(df.index, ema, label='EMA of RSI', color='orange', linestyle='-')
+axes[1].hlines(50, df.index[0], df.index[-1], colors='gray', linestyles='--')  # 50 level for reference (mid-line rsi)
+
+axes[1].set_title('RSI and EMA of RSI')
+axes[1].legend()
+
+# Showing the plot on Streamlit
+st.pyplot(fig)
